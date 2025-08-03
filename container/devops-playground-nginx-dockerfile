@@ -1,0 +1,29 @@
+# Step 1: Build stage using Debian to install tools
+FROM debian:bullseye as builder
+
+# Install required tools
+RUN apt-get update && \
+    apt-get install -y curl dnsutils && \
+    curl -L -Ss "https://github.com/cloverstd/tcping/releases/download/v0.1.1/tcping-linux-amd64-v0.1.1.tar.gz" -o "/tmp/tcping-linux.tgz" && \
+    tar zxf /tmp/tcping-linux.tgz -C /usr/local/bin && \
+    chmod 755 /usr/local/bin/tcping && \
+    rm -f /tmp/tcping-linux.tgz
+
+# Verify installations
+RUN which curl && which nslookup && which dig && which tcping
+
+# Step 2: Production stage with Nginx
+FROM nginx:1.27.3
+
+# Copy binaries from the builder stage
+COPY --from=builder /usr/bin/curl /usr/bin/curl
+COPY --from=builder /usr/bin/nslookup /usr/bin/nslookup
+COPY --from=builder /usr/bin/dig /usr/bin/dig
+COPY --from=builder /usr/local/bin/tcping /usr/local/bin/tcping
+
+# Expose port 80
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
+
